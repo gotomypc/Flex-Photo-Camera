@@ -1,0 +1,30 @@
+Project is using these 3rd party sources:
+dVyper
+URLRequestWrapper by Jonathan Marston
+JSON
+Adobe JPEG encoder
+
+Here are all the parameters that can be passed via swf object parameters
+- url url of script which will be called to save photo to db etc
+- langFileUrl url to file which has language data
+- width  Width of the camera(depends on available resolutions, but you can play with different values) default: 600
+- fontSize  Font size for notifications default: 30
+- delay  Delay in miliseconds in countdown default: 10(very fast)
+- ticks Number of ticks. For example 10 will give you 10,9,8,7,...1 countdown default: 3
+- jsFunc Name of the js function which will be called after succesiful photo submiting default: null(no function call)
+- addPhotoTitle boolean if you dont want to edit title of photo in textarea set this to false default: true 
+- minimalTitleLength minimal length of title default: 2
+- maxChars maximal length of a title default: 140
+- cameraFPS default: 20
+
+			
+To see how to embed swf and pass parameters to it look at index.html in bin
+
+For demo check this link http://www.extrafull.com/flashphoto/index.php
+		
+How to run example on your server:
+Create database and table with database.sql
+Extract files to flashphoto directory in root of apache server
+Edit config.php and set your settings.
+Example files must be in directory flashphoto in root of apache server(this can be changed if you edit SERVER_ROOT in config.php)
+http://localhost/flashphoto/bin/ to run
