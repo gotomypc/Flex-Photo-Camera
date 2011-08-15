@@ -117,13 +117,13 @@ package cameraphoto
 			//add/create overlay
 			overlay = new Canvas();
 			overlay.name = "my_overlay";
-			overlay.width = videoContainer.width - videoContainer.borderMetrics.left - videoContainer.borderMetrics.right - 1;
+			overlay.width = videoContainer.width - videoContainer.borderMetrics.left - 1;
 			overlay.height = fontSize * 3;
-			overlay.y = videoContainer.height - overlay.height - 1 - videoContainer.borderMetrics.top - videoContainer.borderMetrics.bottom;
+			overlay.y = videoContainer.height - overlay.height - videoContainer.borderMetrics.top - 1;
 			//overlay.alpha = 0.75;
 			var g:Graphics = overlay.graphics;
 			g.beginFill(0x000, 0.7);
-			g.drawRect(0, 0, overlay.width - 1, overlay.height - 1);
+			g.drawRect(0, 0, overlay.width, overlay.height);
 			g.endFill();
 			overlay.addChild(notificationLabel);			
 			
