@@ -32,11 +32,9 @@ If false, after successiful photo upload, app will output dialog and than go to 
 			
 To see how to embed swf and pass parameters to it look at index.html in bin
 
-For demo check this link http://www.extrafull.com/flashphoto/index.php
-		
 How to run example on your server:
 Create database and table with database.sql
 Extract files to flashphoto directory in root of apache server
 Edit config.php and set your settings.
 Example files must be in directory flashphoto in root of apache server(this can be changed if you edit SERVER_ROOT in config.php)
-http://localhost/flashphoto/bin/ to run
+http://localhost:8080/flashphoto/bin/ to run or simular(change apache port if needed)
