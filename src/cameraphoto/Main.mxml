@@ -3,18 +3,14 @@
                xmlns:s="library://ns.adobe.com/flex/spark"
                xmlns:mx="library://ns.adobe.com/flex/mx">
 			   
-	<mx:Panel layout="absolute" id="videoContainer" creationComplete="onCreationComplete()" width="100%">
-	</mx:Panel>		
+	<mx:Canvas id="videoContainer" creationComplete="onCreationComplete()" width="100%">
+	</mx:Canvas>		
 	<mx:ControlBar id="photoEditPropertiesContainer" borderStyle="solid" visible="false">
 		<s:VGroup width="90%" top="2" bottom="2" left="5%" right="5%">
 			<mx:Label id="photoTitleLabel" top="0" fontSize="14" fontWeight="bold" color="0x0666666" />
 		
 			<mx:TextArea id="photoTitleEdit" height="40" />
 		</s:VGroup>
-	</mx:ControlBar>
-	<mx:ControlBar id="buttonsContainer" borderStyle="solid" height="35" visible="false" horizontalAlign="center" horizontalGap="40">
-		<mx:Button id="saveButton" />
-		<mx:Button id="takePhotoButton" />
 	</mx:ControlBar>
 	<fx:Script>
             <![CDATA[
@@ -30,60 +26,69 @@
 				private function onCreationComplete():void
 				{
 					var params:Object = FlexGlobals.topLevelApplication.parameters;
-					/*
-					if ( params.langFileUrl != undefined )
-					{
-						Translator.init(params.langFileUrl, attachCameraStream);
-					}
-					else
-					{
-						attachCameraStream();
-					}
-					*/
 					Translator.init(params.langFileUrl, attachCameraStream);
+				}
+				
+				//parse string to boolean http://www.actionscript.org/forums/showthread.php3?t=112370
+				private function parseBoolean(s:String):Boolean
+				{
+					switch(s) {
+						case "1":
+						case "true":
+						case "yes":
+							return true;
+						case "0":
+						case "false":
+						case "no":
+							return false;
+						default:
+							return Boolean(s);
+					}
+				}
+				
+				private function showFatalError(error:String):void
+				{
+					var uiComponent:UIComponent = new UIComponent();
+					uiComponent.width = videoContainer.width - videoContainer.borderMetrics.left - videoContainer.borderMetrics.right - 1;
+					uiComponent.height = 300; 
+					videoContainer.addChild( uiComponent );
+					Alert.init(uiComponent);
+					Alert.show( error );
 				}
 				
 				private function attachCameraStream():void {
 					var params:Object = FlexGlobals.topLevelApplication.parameters;
 					
-					var url:String = params.url != undefined ? params.url :
-									 "http://localhost:8080/tmp/index.php";
-							 
+					//url must be set as parameter
+					if ( params.url == undefined )
+					{
+						showFatalError("Developer error: url must be specified in params");
+						return;
+					}
 					var cameraWidth:Number = params.width != undefined ? params.width : 600;
 					var fontSize:Number = params.fontSize != undefined ? params.fontSize : 30;
 					var cameraDelay:Number = params.delay != undefined ? params.delay : 10;
 					var cameraDelayTicks:Number = params.ticks != undefined ? params.ticks : 3;
 					var cameraFPS:Number = params.cameraFPS != undefined ? params.cameraFPS : 20;
 					var jsFunc:String = params.jsFunc != undefined ? params.jsFunc : null;
-					var addPhotoTitle:Boolean = params.addPhotoTitle != undefined ? params.addPhotoTitle as Boolean : true;
+					var addPhotoTitle:Boolean = params.addPhotoTitle != undefined ? parseBoolean(params.addPhotoTitle) : true;
 					var maxChars:Number = params.maxChars != undefined ? params.maxChars : 140;
-					var minimalTitleLength:Number = params.minimalTitleLength != undefined ? params.minimalTitleLength : 2;
-					
-					/* security :D */
-					/*
-					if ( url.indexOf('http://localhost') != 0 && url.indexOf('http://www.extrafull.com') != 0 )
-					{	
-						return;
-					}
-					*/
-					
+					var minimalTitleLength:Number = params.minChars != undefined ? params.minChars : 2;
+					var isHeaderDisabled:Boolean = params.isHeaderDisabled != undefined ? parseBoolean(params.isHeaderDisabled) : false;
+					var finishAfterUpload:Boolean = params.finishAfterUpload != undefined ? parseBoolean(params.finishAfterUpload) : true;
 					var cameraStream:CameraStream = new CameraStream(cameraWidth, cameraFPS);
 					//show message if camera doesnt exist on system
 					if ( !cameraStream.isOk() )
 					{
-						//Security.showSettings(SecurityPanel.CAMERA);
-						var uiComponent:UIComponent = new UIComponent();
-						uiComponent.width = videoContainer.width - videoContainer.borderMetrics.left - videoContainer.borderMetrics.right - 1;
-						uiComponent.height = 300; // videoContainer.height - 1 - videoContainer.borderMetrics.top - videoContainer.borderMetrics.bottom;
-						videoContainer.addChild( uiComponent );
-						Alert.init(uiComponent);
-						Alert.show( Translator.__('cameraMissingError'), { buttons:[Translator.__('okButtonLabel')] } );		
+						showFatalError(Translator.__('cameraMissingError'));
 						return;
 					}
 					
-					videoContainer.width = cameraStream.getWidth() + 2;
+					videoContainer.width = cameraStream.getWidth(); //+2
+					/*
+					 //remove panel and put canvas instead so we do not need to deal with this
 					var ttl:String = Translator.__('mainPanelTitle');
-					if ( ttl.length > 0 )
+					if ( ttl.length > 0 && !isHeaderDisabled )
 					{
 						videoContainer.title = ttl;
 						videoContainer.height = cameraStream.getHeight() + 33;
@@ -91,31 +96,27 @@
 					else
 					{
 						videoContainer.setStyle("headerHeight", 0);
-						videoContainer.height = cameraStream.getHeight() + videoContainer.borderMetrics.top + videoContainer.borderMetrics.bottom;
+						videoContainer.height = cameraStream.getHeight() 
+												+ videoContainer.borderMetrics.top + videoContainer.borderMetrics.bottom;
 					}
+					*/
+					videoContainer.height = cameraStream.getHeight() ;
 					
-					var vPos:Number = cameraStream.getHeight() + 33 ;
 					if ( addPhotoTitle )
 					{
 						photoEditPropertiesContainer.setVisible(true);
-						photoEditPropertiesContainer.width = cameraStream.getWidth() + 2;
-						photoEditPropertiesContainer.top = vPos;
+						photoEditPropertiesContainer.width = cameraStream.getWidth();
+						photoEditPropertiesContainer.top = videoContainer.height + 2;
 						photoTitleLabel.width = photoTitleEdit.width = cameraStream.getWidth() - 20;
 						photoTitleEdit.maxChars = maxChars;
 						photoTitleLabel.text = Translator.__('photoTitleEditLabel');
-						vPos += photoEditPropertiesContainer.height + 1;
 					}
-		
-					buttonsContainer.width = cameraStream.getWidth() + 2;
-					buttonsContainer.top = vPos;
-					buttonsContainer.setVisible(true);
-						
-					var uploadPhoto:UploadPhoto = new UploadPhoto( url );
+							
+					var uploadPhoto:UploadPhoto = new UploadPhoto( params.url );
 					var cameraMain:CameraMain = new CameraMain( uploadPhoto, cameraStream, videoContainer,
-																saveButton, takePhotoButton,
 																addPhotoTitle ? photoTitleEdit : null,
 																minimalTitleLength,
-																cameraDelayTicks, cameraDelay, fontSize);
+																cameraDelayTicks, cameraDelay, finishAfterUpload, fontSize);
 					if ( jsFunc != null )
 					{
 						cameraMain.setJsFuncToCall(jsFunc);

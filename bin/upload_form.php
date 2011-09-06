@@ -8,11 +8,14 @@
 			url: encodeURI("<?php echo SERVER_ROOT;?>submit.php?data=<?php echo session_id();?>"),
 			width: 400,
 			ticks: 3,
-			delay: 500,
+			delay: 600,
 			fontSize:20,
 			jsFunc: "redirectToIndex",
 			langFileUrl: "<?php echo SERVER_ROOT;?>lang/<?php echo $lang;?>.ini",
-			maxChars:200
+			maxChars:200,
+			addPhotoTitle: 1,
+			minChars: 0,
+			finishAfterUpload: true
 		};
 		var params = {
 			menu: "false",
@@ -26,7 +29,9 @@
 		};
 		function redirectToIndex()
 		{
-			window.location = '<?php echo SERVER_ROOT;?>index.php';
+			setTimeout(function(){
+				window.location = '<?php echo SERVER_ROOT;?>index.php';
+			}, 1000);
 		}
 		swfobject.embedSWF("<?php echo SERVER_ROOT;?>CameraPhoto.swf", "altContent", '360px', '450px', "10.0.0", 
 					"<?php echo SERVER_ROOT;?>expressInstall.swf", flashvars, params, attributes);
