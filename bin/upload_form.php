@@ -8,13 +8,13 @@
 			url: encodeURI("<?php echo SERVER_ROOT;?>submit.php?data=<?php echo session_id();?>"),
 			width: 400,
 			ticks: 3,
-			delay: 600,
+			delay: 400,
 			fontSize:20,
 			jsFunc: "redirectToIndex",
 			langFileUrl: "<?php echo SERVER_ROOT;?>lang/<?php echo $lang;?>.ini",
 			maxChars:200,
 			addPhotoTitle: 1,
-			minChars: 0,
+			minChars: 2,
 			finishAfterUpload: true
 		};
 		var params = {
@@ -29,6 +29,7 @@
 		};
 		function redirectToIndex()
 		{
+			if (!flashvars.finishAfterUpload) return;
 			setTimeout(function(){
 				window.location = '<?php echo SERVER_ROOT;?>index.php';
 			}, 1000);

@@ -144,8 +144,7 @@ package cameraphoto
 			videoContainer.addChild(takePhotoButton);
 			takePhotoButton.y = videoContainer.height - takePhotoButton.height - 30 - videoContainer.borderMetrics.top;
 			saveButton.y = videoContainer.height - saveButton.height - 30 - videoContainer.borderMetrics.top;
-			calculateButtonsX();
-			
+					
 			//set default/start state
 			setState( STATE_START );
 		}
@@ -178,25 +177,29 @@ package cameraphoto
 			switch (state)
 			{
 				case STATE_START:
-					cameraStream.clearLastSnapShot();
-					streamUIComponent.setVisible(true);
-					photoUIComponent.setVisible(false);
-			
-					titlePhotoEditTextArea.text = "";//clear title
-					var s:DisplayObject = videoContainer.getChildByName("my_overlay");
-					if ( s != null )
-					{
-						videoContainer.removeChild(overlay);
-					}
-					
 					saveButton.setVisible(true);
 					takePhotoButton.setVisible(true);
 					saveButton.enabled = false;
 					takePhotoButton.enabled = true;					
 					takePhotoButton.label = Translator.__("takePhotoButtonLabel");
-					saveButton.label = Translator.__("saveButtonLabel");			
+					saveButton.label = Translator.__("saveButtonLabel");								
 					calculateButtonsX();
-			
+					
+					cameraStream.clearLastSnapShot();
+					streamUIComponent.setVisible(true);
+					photoUIComponent.setVisible(false);
+					
+					var s:DisplayObject = videoContainer.getChildByName("my_overlay");
+					if ( s != null )
+					{
+						videoContainer.removeChild(overlay);
+					}
+					if ( titlePhotoEditTextArea != null )
+					{
+						titlePhotoEditTextArea.text = "";//clear title
+						titlePhotoEditTextArea.enabled = true;						
+					}
+					
 					break;
 					
 				case STATE_TAKING_PHOTO:
@@ -239,7 +242,12 @@ package cameraphoto
 					takePhotoButton.setVisible(false);
 										
 					notificationLabel.text = Translator.__('notificationSavingPhoto');
-					centerNotif();					
+					centerNotif();	
+					
+					if ( titlePhotoEditTextArea != null )
+					{
+						titlePhotoEditTextArea.enabled = false; //disable text
+					}
 					break;
 				
 				case STATE_SAVING_PHOTO_ERROR:
@@ -248,10 +256,19 @@ package cameraphoto
 					takePhotoButton.enabled = true;
 					saveButton.setVisible(true);
 					takePhotoButton.setVisible(true);
+					
+					if ( titlePhotoEditTextArea != null )
+					{
+						titlePhotoEditTextArea.enabled = true; //disable text
+					}
 					break;
 					
 				case STATE_SUCCESSFUL_END:
-					titlePhotoEditTextArea.enabled = false;
+					if ( titlePhotoEditTextArea != null )
+					{
+						titlePhotoEditTextArea.enabled = false; //disable text
+					}
+										
 					notificationLabel.text = Translator.__('notificationPhotoSaved');
 					//remove overlay if text is ""
 					if ( notificationLabel.text.length == 0 )
@@ -294,8 +311,10 @@ package cameraphoto
 			
 			uploadPhoto.upload( cameraStream.getLastSnapShot(), t );
 			//this is not working because of security restrictions
-			//var t:Timer = new Timer(200, 1);
-			//t.addEventListener(TimerEvent.TIMER_COMPLETE, handlerTimerCompleteStartPhotoSave);
+			//var t:Timer = new Timer(100, 1);
+			//t.addEventListener(function (evt:TimerEvent):void {
+				//uploadPhoto.upload( cameraStream.getLastSnapShot(), t );
+			//});	
 			//t.start();
         }
 		
@@ -344,7 +363,7 @@ package cameraphoto
 		
 		private function onFailurePhotoUpload(evt:UploadPhotoEvent):void
 		{
-			showErrorNotification( "KURAC"+Translator.__('notificationSavingPhotoFailed') );
+			showErrorNotification( Translator.__('notificationSavingPhotoFailed') );
 		}
 		
 		private function showErrorNotification(msg:String):void
