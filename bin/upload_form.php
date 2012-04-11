@@ -10,7 +10,7 @@
 			ticks: 3,
 			delay: 400,
 			fontSize:20,
-			jsFunc: "redirectToIndex",
+			afterUploadCallback: "redirectToIndex",
 			langFileUrl: "<?php echo SERVER_ROOT;?>lang/<?php echo $lang;?>.ini",
 			maxChars:200,
 			addPhotoTitle: 1,

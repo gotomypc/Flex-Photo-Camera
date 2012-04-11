@@ -23,6 +23,8 @@
 				import flash.text.TextFieldType;
 				import dVyper.Alert;
 				
+				private var cameraMain:CameraMain;
+				
 				private function onCreationComplete():void
 				{
 					var params:Object = FlexGlobals.topLevelApplication.parameters;
@@ -66,15 +68,15 @@
 						return;
 					}
 					var cameraWidth:Number = params.width != undefined ? params.width : 600;
-					var fontSize:Number = params.fontSize != undefined ? params.fontSize : 30;
+					var fontSize:Number = params.fontSize != undefined ? params.fontSize : 20;
 					var cameraDelay:Number = params.delay != undefined ? params.delay : 10;
 					var cameraDelayTicks:Number = params.ticks != undefined ? params.ticks : 3;
 					var cameraFPS:Number = params.cameraFPS != undefined ? params.cameraFPS : 20;
-					var jsFunc:String = params.jsFunc != undefined ? params.jsFunc : null;
+					var afterUploadCallback:String = params.afterUploadCallback != undefined ? params.afterUploadCallback : null;
+					var beforeUploadCallback:String = params.beforeUploadCallback != undefined ? params.beforeUploadCallback : null;
 					var addPhotoTitle:Boolean = params.addPhotoTitle != undefined ? parseBoolean(params.addPhotoTitle) : true;
 					var maxChars:Number = params.maxChars != undefined ? params.maxChars : 140;
 					var minimalTitleLength:Number = params.minChars != undefined ? params.minChars : 2;
-					var isHeaderDisabled:Boolean = params.isHeaderDisabled != undefined ? parseBoolean(params.isHeaderDisabled) : false;
 					var finishAfterUpload:Boolean = params.finishAfterUpload != undefined ? parseBoolean(params.finishAfterUpload) : true;
 					var cameraStream:CameraStream = new CameraStream(cameraWidth, cameraFPS);
 					//show message if camera doesnt exist on system
@@ -84,22 +86,7 @@
 						return;
 					}
 					
-					videoContainer.width = cameraStream.getWidth(); //+2
-					/*
-					 //remove panel and put canvas instead so we do not need to deal with this
-					var ttl:String = Translator.__('mainPanelTitle');
-					if ( ttl.length > 0 && !isHeaderDisabled )
-					{
-						videoContainer.title = ttl;
-						videoContainer.height = cameraStream.getHeight() + 33;
-					}
-					else
-					{
-						videoContainer.setStyle("headerHeight", 0);
-						videoContainer.height = cameraStream.getHeight() 
-												+ videoContainer.borderMetrics.top + videoContainer.borderMetrics.bottom;
-					}
-					*/
+					videoContainer.width = cameraStream.getWidth();
 					videoContainer.height = cameraStream.getHeight() ;
 					
 					if ( addPhotoTitle )
@@ -112,15 +99,13 @@
 						photoTitleLabel.text = Translator.__('photoTitleEditLabel');
 					}
 							
-					var uploadPhoto:UploadPhoto = new UploadPhoto( params.url );
-					var cameraMain:CameraMain = new CameraMain( uploadPhoto, cameraStream, videoContainer,
-																addPhotoTitle ? photoTitleEdit : null,
-																minimalTitleLength,
-																cameraDelayTicks, cameraDelay, finishAfterUpload, fontSize);
-					if ( jsFunc != null )
-					{
-						cameraMain.setJsFuncToCall(jsFunc);
-					}
+					cameraMain = new CameraMain( new UploadPhoto( params.url ), 
+												cameraStream, videoContainer,
+												afterUploadCallback,
+												beforeUploadCallback,
+												addPhotoTitle ? photoTitleEdit : null,
+												minimalTitleLength,
+												cameraDelayTicks, cameraDelay, finishAfterUpload, fontSize);
 				}
 				
             ]]>

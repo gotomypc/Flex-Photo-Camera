@@ -17,9 +17,11 @@ package cameraphoto
 	import mx.containers.ControlBar;
 	import mx.containers.Panel;
 	import mx.controls.Button;
+	import mx.controls.Image;
 	import mx.controls.TextArea;
 	import mx.core.UIComponent;
 	import mx.controls.Label;
+	import spark.primitives.Rect;
 	
 	import flash.external.ExternalInterface;
 	
@@ -47,25 +49,27 @@ package cameraphoto
 		private var photoUIComponent:UIComponent;
 		
 		private var saveButton:Button;
+		private var resetButton:Button;
 		private var takePhotoButton:Button;
 		
 		private var notificationLabel:Label;
-		private var intervalTimer:Timer;
+		private var intervalTimer:Timer = null;
 		//this sprite is used as bottom overlay
 		private var overlay:Canvas;
 		
 		private var takingPhotoCounter:Number;
 		
-		
-		private var jsFuncToCall:String = null;
+		private var afterUploadCallback:String = null;
+		private var beforeUploadCallback:String = null;
 		
 		private var fontSize:Number;
-		
 		private var finishAfterUpload:Boolean;
-		
 		private var minimalPhotoEditLength:Number;
 		
 		private var titlePhotoEditTextArea:TextArea;
+		
+		[Embed("/images/camera.png")] 
+		private var cameraIconClass: Class;
 		
 		public static const STATE_START : Number = 1;
 		public static const STATE_PHOTO_TAKEN: Number = 2;
@@ -77,14 +81,17 @@ package cameraphoto
 		private var state:Number;
 		
 		public function CameraMain(
-			suploadPhoto:UploadPhoto, scameraStream:CameraStream, 
+			suploadPhoto:UploadPhoto, 
+			scameraStream:CameraStream, 
 			svideo:Canvas,
+			safterUploadCallback:String,
+			sbeforeUploadCallback:String,
 			titleBox:TextArea,
 			sminimalPhotoEditLength:Number,
-			swaitForPhotoInterval:Number = WAIT_FOR_PHOTO_INTERVAL,
-			swaitForPhotoIntervalDelay:Number = WAIT_FOR_PHOTO_INTERVAL_DELAY, 
-			sfinishAfterUpload:Boolean = true,
-			sfontSize:Number = NOTIFICATION_FONT_SIZE ) 
+			swaitForPhotoInterval:Number,
+			swaitForPhotoIntervalDelay:Number,
+			sfinishAfterUpload:Boolean,
+			sfontSize:Number) 
 		{
 			uploadPhoto = suploadPhoto;
 			cameraStream = scameraStream;
@@ -94,6 +101,8 @@ package cameraphoto
 			finishAfterUpload = sfinishAfterUpload;
 			titlePhotoEditTextArea = titleBox;
 			minimalPhotoEditLength = sminimalPhotoEditLength;
+			afterUploadCallback = safterUploadCallback;
+			beforeUploadCallback = sbeforeUploadCallback;
 			
 			streamUIComponent = new UIComponent();
 			streamUIComponent.width = cameraStream.getWidth();
@@ -106,27 +115,25 @@ package cameraphoto
 			photoUIComponent.height = cameraStream.getHeight();
 			videoContainer.addChild( photoUIComponent );
 			
-			//notification label config
-			notificationLabel = new Label();		
-			notificationLabel.setStyle("color", 0x0ffffff);
-			notificationLabel.setStyle("fontSize", fontSize.toString() );
-			
 			//add/create overlay
 			overlay = new Canvas();
 			overlay.name = "my_overlay";
 			overlay.width = videoContainer.width - videoContainer.borderMetrics.left - 1;
-			overlay.height = fontSize * 2;
+			overlay.height = 40;
 			overlay.y = videoContainer.height - overlay.height - videoContainer.borderMetrics.top - 1;
 			//overlay.alpha = 0.75;
 			var g:Graphics = overlay.graphics;
 			g.beginFill(0x000, 0.7);
 			g.drawRect(0, 0, overlay.width, overlay.height);
 			g.endFill();
-			overlay.addChild(notificationLabel);			
 			
-			intervalTimer = new Timer(swaitForPhotoIntervalDelay, takingPhotoCounter + 1);
-			intervalTimer.addEventListener(TimerEvent.TIMER, handlerPhotoTimer);
-			intervalTimer.addEventListener(TimerEvent.TIMER_COMPLETE, handlerPhotoTimerComplete);
+			//timer is only available if photo counter setting is greater than 0 
+			if (takingPhotoCounter > 0)
+			{
+				intervalTimer = new Timer(swaitForPhotoIntervalDelay, takingPhotoCounter + 1);
+				intervalTimer.addEventListener(TimerEvent.TIMER, handlerPhotoTimer);
+				intervalTimer.addEventListener(TimerEvent.TIMER_COMPLETE, handlerPhotoTimerComplete);
+			}
 			
 			//add handlers for upload event
 			uploadPhoto.addEventListener('onLoadSuccess', onSuccessPhotoUpload );
@@ -134,21 +141,35 @@ package cameraphoto
 			uploadPhoto.addEventListener('onSecurityError', onFailurePhotoUpload );
 			
 			//default button captions
+			
 			saveButton = new Button();
+			resetButton = new Button();
 			takePhotoButton = new Button();
-			//
+			takePhotoButton.setStyle("icon", cameraIconClass);
+			takePhotoButton.width = takePhotoButton.height = 32;
+			takePhotoButton.y = (overlay.height - takePhotoButton.height) / 2;			
+			takePhotoButton.x = (overlay.width - takePhotoButton.width) / 2;
 			takePhotoButton.addEventListener(MouseEvent.CLICK, handlerTakePicture);
-			saveButton.addEventListener(MouseEvent.CLICK, handlerSavePhoto);
-			//add buttons to panel
-			videoContainer.addChild(saveButton);
-			videoContainer.addChild(takePhotoButton);
-			takePhotoButton.y = videoContainer.height - takePhotoButton.height - 30 - videoContainer.borderMetrics.top;
-			saveButton.y = videoContainer.height - saveButton.height - 30 - videoContainer.borderMetrics.top;
-					
+			saveButton.label = Translator.__("saveButtonLabel");
+			resetButton.label = Translator.__("resetButtonLabel");				
+			saveButton.addEventListener(MouseEvent.CLICK, handlerSave);
+			resetButton.addEventListener(MouseEvent.CLICK, handlerReset);
+			
+			//notification label config
+			notificationLabel = new Label();		
+			notificationLabel.setStyle("color", 0x0ffffff);
+			notificationLabel.setStyle("fontSize", fontSize.toString() );
+			
+			overlay.addChild(saveButton);
+			overlay.addChild(resetButton);
+			overlay.addChild(takePhotoButton);
+			overlay.addChild(notificationLabel);
+			videoContainer.addChild(overlay);
+			
 			//set default/start state
 			setState( STATE_START );
 		}
-		
+
 		//method centers notification on bottom of the video stream
 		private function centerNotif():void
 		{
@@ -158,16 +179,15 @@ package cameraphoto
 			notificationLabel.x = (overlay.width - m.width) / 2;
 		}
 		
-		//caluclate x positions of buttons
-		private function calculateButtonsX():void
+		//caluclate x,y positions of buttons save and reset
+		private function initButtonsPos():void
 		{
-			var half:Number = videoContainer.width / 2;
-			var bounds:Rectangle = takePhotoButton.getRect(takePhotoButton);
-			takePhotoButton.x = (half - bounds.width) / 2
-								+ videoContainer.borderMetrics.left;
-			bounds = saveButton.getRect(saveButton);					
-			saveButton.x = 		(half - bounds.width) / 2 + half;
-								+ videoContainer.borderMetrics.left;
+			var rectSave:Rectangle = saveButton.getBounds(saveButton);
+			var rectReset:Rectangle = resetButton.getBounds(resetButton);
+			saveButton.x = overlay.width - rectSave.width - 10;
+			saveButton.y = (overlay.height - rectSave.height) / 2;						
+			resetButton.x = overlay.width - rectReset.width - 15 - rectSave.width;
+			resetButton.y = (overlay.height - rectReset.height) / 2;
 		}
 		
 		//sets state of app
@@ -177,113 +197,93 @@ package cameraphoto
 			switch (state)
 			{
 				case STATE_START:
-					saveButton.setVisible(true);
-					takePhotoButton.setVisible(true);
-					saveButton.enabled = false;
-					takePhotoButton.enabled = true;					
-					takePhotoButton.label = Translator.__("takePhotoButtonLabel");
-					saveButton.label = Translator.__("saveButtonLabel");								
-					calculateButtonsX();
-					
 					cameraStream.clearLastSnapShot();
+					takePhotoButton.setVisible(true);
+					saveButton.setVisible(false);
+					resetButton.setVisible(false);
+					
 					streamUIComponent.setVisible(true);
 					photoUIComponent.setVisible(false);
+					notificationLabel.setVisible(false);
 					
-					var s:DisplayObject = videoContainer.getChildByName("my_overlay");
-					if ( s != null )
-					{
-						videoContainer.removeChild(overlay);
-					}
 					if ( titlePhotoEditTextArea != null )
 					{
 						titlePhotoEditTextArea.text = "";//clear title
 						titlePhotoEditTextArea.enabled = true;						
-					}
-					
+					}					
 					break;
 					
 				case STATE_TAKING_PHOTO:
 					streamUIComponent.setVisible(true);
 					photoUIComponent.setVisible(false);
 					
-					videoContainer.addChild(overlay);
-					
 					saveButton.setVisible(false);
+					resetButton.setVisible(false);
 					takePhotoButton.setVisible(false);
 					
+					notificationLabel.setVisible(true);
 					notificationLabel.text = takingPhotoCounter.toString();
 					centerNotif();
 					
-					intervalTimer.reset();
-					intervalTimer.start();
+					//show timer with ticks if needed
+					if (intervalTimer != null)
+					{
+						intervalTimer.reset();
+						intervalTimer.start();	
+					}
+					else {
+						//otherwise jump to phot taken state
+						setState(STATE_PHOTO_TAKEN);
+					}
 					break;
 					
-				case STATE_PHOTO_TAKEN:
+				case STATE_PHOTO_TAKEN:			
 					streamUIComponent.setVisible(false);
 					photoUIComponent.setVisible(true);
-					
+					notificationLabel.setVisible(false);
+					//put snapshot to view
 					addOnlyChild( photoUIComponent, cameraStream.getSnapshot() );
 					
-					videoContainer.removeChild(overlay);
-
-					takePhotoButton.label = Translator.__("takePhotoAgainButtonLabel");		
-					calculateButtonsX();
-			
-					saveButton.enabled = true;
-					takePhotoButton.enabled = true;
+					takePhotoButton.setVisible(false);					
 					saveButton.setVisible(true);
-					takePhotoButton.setVisible(true);					
+					resetButton.setVisible(true);
+					initButtonsPos();
 					break;
 					
-				case STATE_SAVING_PHOTO:
-					videoContainer.addChild(overlay);
-					
+				case STATE_SAVING_PHOTO:					
 					saveButton.setVisible(false);
 					takePhotoButton.setVisible(false);
+					resetButton.setVisible(false);
+					notificationLabel.setVisible(true);
 										
 					notificationLabel.text = Translator.__('notificationSavingPhoto');
 					centerNotif();	
-					
-					if ( titlePhotoEditTextArea != null )
-					{
-						titlePhotoEditTextArea.enabled = false; //disable text
-					}
 					break;
 				
 				case STATE_SAVING_PHOTO_ERROR:
-					videoContainer.removeChild(overlay);
-					saveButton.enabled = true;
-					takePhotoButton.enabled = true;
 					saveButton.setVisible(true);
-					takePhotoButton.setVisible(true);
+					resetButton.setVisible(true);
+					takePhotoButton.setVisible(false);
 					
-					if ( titlePhotoEditTextArea != null )
-					{
-						titlePhotoEditTextArea.enabled = true; //disable text
-					}
+					notificationLabel.setVisible(false);				
 					break;
 					
 				case STATE_SUCCESSFUL_END:
+					saveButton.setVisible(false);
+					resetButton.setVisible(false);
+					takePhotoButton.setVisible(false);
+					
 					if ( titlePhotoEditTextArea != null )
 					{
 						titlePhotoEditTextArea.enabled = false; //disable text
-					}
-										
+					}										
+					notificationLabel.setVisible(true);
 					notificationLabel.text = Translator.__('notificationPhotoSaved');
-					//remove overlay if text is ""
-					if ( notificationLabel.text.length == 0 )
-					{
-						videoContainer.removeChild(overlay);
-					}
 					centerNotif();
 					break;		
 			}
 		}
-		
-		public function setJsFuncToCall(f:String):void {
-			jsFuncToCall = f;
-		}
-		
+
 		private function handlerTakePicture(event:Event):void {
 			setState( STATE_TAKING_PHOTO );
         }
@@ -298,25 +298,44 @@ package cameraphoto
 			setState( STATE_PHOTO_TAKEN );
         }
 		
-		private function handlerSavePhoto(event:Event):void {
-			var t:String = titlePhotoEditTextArea != null ? titlePhotoEditTextArea.text : null;
-			if ( t != null  &&  t.length < minimalPhotoEditLength )
-			{
-				Alert.init(photoUIComponent);
-				Alert.show( Translator.__('titleNotEnoughLettersError') , { buttons:[Translator.__('okButtonLabel')] } );	
-				return;
-			}
-			//call ducking uploading :)
-			setState( STATE_SAVING_PHOTO );
-			
-			uploadPhoto.upload( cameraStream.getLastSnapShot(), t );
-			//this is not working because of security restrictions
-			//var t:Timer = new Timer(100, 1);
-			//t.addEventListener(function (evt:TimerEvent):void {
-				//uploadPhoto.upload( cameraStream.getLastSnapShot(), t );
-			//});	
-			//t.start();
+		private function handlerReset(event:Event):void {
+			setState( STATE_START );
         }
+		
+		private function handlerSave(event:Event):void {
+			//no textarea for desc or length of desc is greater than minimal length
+			uploadPhotoExecute();
+        }
+		
+		private function uploadPhotoExecute():void {
+			if ( titlePhotoEditTextArea == null  ||  titlePhotoEditTextArea.text.length >= minimalPhotoEditLength )
+			{
+				var params:Object = { };
+				if (titlePhotoEditTextArea != null)
+				{
+					params.title = titlePhotoEditTextArea.text;
+				}
+				
+				//if passed, call js callback to retrieve additional params before uploading
+				if (beforeUploadCallback)
+				{
+					var obj:Object = ExternalInterface.call(beforeUploadCallback);
+					for (var i:String in obj) {
+						if (obj.hasOwnProperty(i)) {
+							params[i] = obj[i];
+						}
+					}
+				}
+								
+				//call ducking uploading :)
+				setState( STATE_SAVING_PHOTO );			
+				uploadPhoto.upload( cameraStream.getLastSnapShot(), params);
+			}			
+			else {
+				Alert.init(photoUIComponent);
+				Alert.show( Translator.__('titleNotEnoughLettersError') , { buttons:[Translator.__('okButtonLabel')] } );
+			}
+		}
 		
 		private function onSuccessPhotoUpload(evt:UploadPhotoEvent):void
 		{
@@ -328,26 +347,23 @@ package cameraphoto
 				trace(json);
 				if ( json.status == 0 )
 				{
+					notificationLabel.setVisible(false);
 					showErrorNotification( json.error );
 				}
 				else
 				{
-					//if js function call is set than call it
-					if ( jsFuncToCall != null )
-					{
-						ExternalInterface.call(jsFuncToCall + "()");
+					setState(STATE_SUCCESSFUL_END);	
+					//if passed, call external java method
+					if (afterUploadCallback)
+					{						
+						ExternalInterface.call(afterUploadCallback);						
 					}
-					//if finishAfterUpload set => stop application and show sucessifull notif
-					if ( finishAfterUpload )
+					//if finish... not set roll back all over again!
+					else if (!finishAfterUpload)
 					{
-						setState(STATE_SUCCESSFUL_END);				
-					}
-					else
-					{
+						notificationLabel.setVisible(false);
 						//otherwise show success dialog and on click on ok go back to the begining
 						Alert.init(photoUIComponent);
-						//must clear overlay
-						videoContainer.removeChild(overlay);
 						Alert.show( Translator.__('notificationPhotoSaved'), 
 							{ buttons:[Translator.__('okButtonLabel')], callback:function (response:String):void {								
 								setState(STATE_START);
@@ -357,13 +373,16 @@ package cameraphoto
 			}
 			catch (e:Error)
 			{
+				notificationLabel.setVisible(false);
 				showErrorNotification( Translator.__('notificationSavingPhotoFailed') );
 			}
 		}
 		
 		private function onFailurePhotoUpload(evt:UploadPhotoEvent):void
 		{
-			showErrorNotification( Translator.__('notificationSavingPhotoFailed') );
+			notificationLabel.setVisible(false);
+			//TODO: debug?
+			showErrorNotification( evt.params + " " + Translator.__('notificationSavingPhotoFailed') );
 		}
 		
 		private function showErrorNotification(msg:String):void
@@ -387,7 +406,4 @@ package cameraphoto
 			cell.addChild(obj);
 		}
 	}
-	
-	
-
 }

@@ -30,17 +30,10 @@ package cameraphoto
 			this.scriptUrl = scriptUrl;
 		}
 		
-		public function upload(bitmapData:BitmapData, title:String = null):void
+		public function upload(bitmapData:BitmapData, params: Object):void
 		{
 			var byteArray:ByteArray = new JPGEncoder().encode(bitmapData);
 			var fileName:String = Math.round(100) + "e" + (new Date().valueOf().toString()) + ".jpg";
-			
-			var params:Object = null;
-			if ( title != null )
-			{
-				params = new Object();
-				params.title = title;
-			}
 			
 			wrapper = new URLRequestWrapper(byteArray, fileName, null, params );
 		    wrapper.url = scriptUrl;
@@ -56,30 +49,23 @@ package cameraphoto
 			}
 			catch (ex:SecurityError)
 			{
-				dispatchEvent( new UploadPhotoEvent('onSecurityError', 'Security Violation') );
+				dispatchEvent( new UploadPhotoEvent('onSecurityError', 'Security Violation. ' + ex.message) );
 			}
 		}
-		
-		
+				
 		private function onLoadSuccess(evt:Event):void
 		{
-			trace("OK");
 			dispatchEvent( new UploadPhotoEvent('onLoadSuccess', evt.target) );
 		}
 		
 		private function ioErrorHandler(evt:IOErrorEvent):void
 		{
-			trace("ERROR IO");
-			dispatchEvent( new UploadPhotoEvent('onLoadFailure', 'IO Error.'));
+			dispatchEvent( new UploadPhotoEvent('onLoadFailure', 'IO Error. ' + evt.text));
 		}
 		
 		private function onSecurityError(evt:SecurityErrorEvent):void
 		{
-			trace("ERROR SEC");
-			dispatchEvent( new UploadPhotoEvent('onSecurityError', 'Security Violation') );
-		}
-		
-		
+			dispatchEvent( new UploadPhotoEvent('onSecurityError', 'Security Violation. ' + evt.text) );
+		}				
 	}
-
 }
